@@ -1,0 +1,51 @@
+rm(list=ls())
+
+############################################################################
+### Figure XX. Non-linear ozone-mortality association in Chicago, USA ######
+############################################################################
+
+install.packages("dlnm")
+library(dlnm)
+
+## Temporal control for seasonality
+spl1 <- bs(chicagoNMMAPS$date,degree=3,df=56)
+
+## Create the model
+
+
+## Specifications:
+## 4df for ozone, centered at the 22ppb
+## 4df for temperature
+
+mod2<-mgcv::gam(death~s(o3,k=4,pc=22)+s(temp,k=4)+spl1,na.action = na.omit,data=chicagoNMMAPS,family = quasipoisson(link="log"))
+plot(mod2,select = 1,xlab="Ozone concentration (in ppb)",ylab="log(RR)")
+
+######################################################################################
+### Figure XX. Global annual number of ozone-related deaths (based on GBD 2019) ######
+######################################################################################
+
+dat1<-read.csv("C:/Users/aa84249537/Desktop/Book Chapters and Reports/IHME-GBD_2019_DATA-ca52e3d8-1/IHME-GBD_2019_DATA-ca52e3d8-1.csv",header=T)
+tab3<-read.csv("C:/Users/aa84249537/Desktop/Book Chapters and Reports/locid.csv",header = T)
+
+dat2<-merge(dat1,tab3,by.x="location",by.y="locid",all.x=T)
+
+library(ggmap)
+library(mapdata)
+
+register_google(key="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") ## Register a free Google key here: https://developers.google.com/maps/documentation/geocoding/get-api-key
+df1<-data.frame(pref=unique(dat2$locname),stringsAsFactors = F)
+df1_ggmap<-geocode(location = unique(dat2$locname),output = "more", type="country",source = "google")
+df1_ggmap<-cbind.data.frame(df1,df1_ggmap)
+
+dat3<-merge(dat2,df1_ggmap,by.x="locname",by.y="pref",all.x = T)
+
+## Choice on what to display: number of deaths (measure==1) or DALY (measure==2)
+dat3a<-dat3[dat3$measure==1,]
+
+levels<-cut(dat3a$val, breaks=c(quantile(dat3a$val, probs = seq(0, 1, by = 0.20))), 
+            labels=c("0-20","20-40","40-60","60-80","80-100"), include.lowest=TRUE)
+funcol <- colorRampPalette(c("yellow","orange","red"))
+col <- funcol(length(levels(levels)))[levels]
+
+map("world")
+symbols(dat3a$lon,dat3a$lat,circles=rep(3,204),inches=F,bg=col,add=T)
